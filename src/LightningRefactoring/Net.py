@@ -17,26 +17,29 @@ class EffNet(pl.LightningModule):
         self.loss = nn.CosineSimilarity()
 
     def forward(self, x):
-        return self.net(x)
+        return self.net(x) / torch.norm(self.net(x), dim=1, keepdim=True)
 
     def training_step(self, batch, batch_idx):
-        x, y = batch
-        y_hat = self(x)
-        loss = self.loss(y_hat, y)
+        scan, direction, origin = batch
+        direction_hat = self(scan)
+        loss = 1 - self.loss(direction_hat, direction)
+        loss = torch.Tensor(loss.mean())
         self.log('train_loss', loss)
         return loss
 
     def validation_step(self, batch, batch_idx):
-        x, y = batch
-        y_hat = self(x)
-        loss = self.loss(y_hat, y)
+        scan, direction, origin = batch
+        direction_hat = self(scan)
+        loss = 1 - self.loss(direction_hat, direction)
+        loss = torch.Tensor(loss.mean())
         self.log('val_loss', loss)
         return loss
 
     def test_step(self, batch, batch_idx):
-        x, y = batch
-        y_hat = self(x)
-        loss = self.loss(y_hat, y)
+        scan, direction, origin = batch
+        direction_hat = self(scan)
+        loss = 1 - self.loss(direction_hat, direction)
+        loss = torch.Tensor(loss.mean())
         self.log('test_loss', loss)
         return loss
 

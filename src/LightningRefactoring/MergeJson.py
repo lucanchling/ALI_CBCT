@@ -1,9 +1,11 @@
 import json 
 import os
 import glob
+import argparse
 
-if __name__ == "__main__":
-    data_dir = "/Users/luciacev-admin/Desktop/Luc_Anchling/DATA/ALICBCT/OUTPUT"
+def main(args):
+    
+    data_dir = args.data_dir
 
     # if os.path.exists(out_dir):
     #     os.system('rm -rf ' + out_dir)
@@ -30,10 +32,20 @@ if __name__ == "__main__":
                 data = json.load(f)
             data1['markups'][0]['controlPoints'].extend(data['markups'][0]['controlPoints'])
         outpath = os.path.normpath("/".join(files[0].split('/')[:-1]))        # Write the merged json file
-        with open(outpath+'/'+key.split('#')[1] + '_MERGED.mrk.json', 'w') as f: #out_dir + '/' + key.split('#')[0].split('_dataset')[0] + '_' + key.split('#')[1] + '_MERGED.mrk.json', 'w') as f:
+        with open(outpath+'/'+key.split('#')[1] + '_'+ args.extension +'.mrk.json', 'w') as f: #out_dir + '/' + key.split('#')[0].split('_dataset')[0] + '_' + key.split('#')[1] + '_MERGED.mrk.json', 'w') as f:
             json.dump(data1, f, indent=4)
 
     # ==================== DELETE UNUSED JSON  ====================
     for key, files in dict_list.items():
         for file in files:
             os.remove(file)    
+
+
+if __name__ == "__main__":
+    
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--data_dir',help='directory where json files to merge are',type=str,required=True)
+    parser.add_argument('--extension',help='extension of new merged json files',type=str,default='MERGED')
+    args = parser.parse_args()
+
+    main(args)
