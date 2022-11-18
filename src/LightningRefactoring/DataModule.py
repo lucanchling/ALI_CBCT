@@ -18,7 +18,7 @@ from monai.transforms import (
     Compose,
 )
 
-def LoadJsonLandmarks(ldmk_path,landmark):
+def LoadJsonLandmarks(ldmk_path,landmark=None):
     """
     Load landmarks from json file
     
@@ -46,9 +46,13 @@ def LoadJsonLandmarks(ldmk_path,landmark):
     markups = data["markups"][0]["controlPoints"]
     landmarks = {}
     for markup in markups:
-        lm_ph_coord = np.array([markup["position"][0],markup["position"][1],markup["position"][2]])
-        lm_coord = lm_ph_coord.astype(np.float64)
-        landmarks[markup["label"]] = lm_coord
+        try:
+            lm_ph_coord = np.array([markup["position"][0],markup["position"][1],markup["position"][2]])
+            lm_coord = lm_ph_coord.astype(np.float64)
+            landmarks[markup["label"]] = lm_coord
+        except IndexError:
+            # print("Landmark {} not found for file {}".format(markup["label"],ldmk_path))
+            pass
     if landmark is None:
         return landmarks
     else:
@@ -88,7 +92,10 @@ def RandRotateLandmarks(scan, lm, x_range, y_range, z_range):
     scan = sitk.Resample(image1=scan, transform=R, interpolator=sitk.sitkAffine)
 
     rotmatrix = np.array(R.GetMatrix()).reshape(3,3)
-    lm = np.matmul(lm, rotmatrix)
+    try:    # if lm is a single landmark
+        lm = np.matmul(lm, rotmatrix)
+    except ValueError:  # if lm is a dict
+        lm = {key : np.matmul(lm[key], rotmatrix) for key in lm.keys()}
     return scan, lm
 
 
@@ -134,13 +141,14 @@ class DataModuleClass(pl.LightningDataModule):
 
 
 class DatasetClass(Dataset):
-    def __init__(self, df, mount_point='',landmark=None, transform=None, RandomRotation=False):
+    def __init__(self, df, mount_point='',landmark=None, transform=None, angle=np.pi/2, RandomRotation=False):
         super().__init__()
         self.df = df
         self.transform = transform
         self.landmark = landmark
         self.mount_point = mount_point
         self.RandomRotation = RandomRotation
+        self.angle = angle
 
     def __len__(self):
         return len(self.df)
@@ -156,39 +164,41 @@ class DatasetClass(Dataset):
 
         lm = LoadJsonLandmarks(lm_path, self.landmark)
 
+        if self.RandomRotation: # Random Rotation for training --> scan & landmarks
+            scan, lm = RandRotateLandmarks(scan, lm, x_range=self.angle, y_range=self.angle, z_range=self.angle)
+        
+        scan = torch.Tensor(sitk.GetArrayFromImage(scan)).unsqueeze(0)  # Conversion for Monai transforms
 
-        if self.transform:
+        # if self.transform:
             
-            if self.RandomRotation: # Random Rotation for training --> scan & landmarks
-                scan, lm = RandRotateLandmarks(scan, lm, x_range=np.pi/2, y_range=np.pi/2, z_range=np.pi/2)
             
-            scan = torch.Tensor(sitk.GetArrayFromImage(scan)).unsqueeze(0)  # Conversion for Monai transforms
+        #     scan = self.transform(scan) # Apply transforms
             
-            scan = self.transform(scan) # Apply transforms
-            
-            try:# Get the crop parameters
-                cropParam = scan.__getattribute__('data').__getattribute__('applied_operations')[-1]['extra_info']['cropped']
-                cropStart = [cropParam[i] for i in range(0,len(cropParam),2)]
-                cropStart = cropStart[::-1]
-            except:
-                cropStart = [0,0,0]
+        #     try:# Get the crop parameters
+        #         cropParam = scan.__getattribute__('data').__getattribute__('applied_operations')[-1]['extra_info']['cropped']
+        #         cropStart = [cropParam[i] for i in range(0,len(cropParam),2)]
+        #         cropStart = cropStart[::-1]
+        #     except:
+        #         cropStart = [0,0,0]
 
-        physical_origin = origin - np.array([32,32,32])*spacing + np.array(cropStart)*spacing
+        physical_origin = origin #- np.array([32,32,32])*spacing + np.array(cropStart)*spacing
 
         # Compute the direction from the physical origin towards the Landmark position
         # direction = {key : np.array(value - physical_origin) / np.linalg.norm(value-physical_origin) for key,value in lm.items()}
-        direction = np.array(lm - physical_origin) / np.linalg.norm(lm - physical_origin)
-        # To select only one landmark
-        # if self.landmark is not None:
-            # direction = torch.Tensor(direction[self.landmark])
+        length = np.linalg.norm(lm - physical_origin)
+
+        direction = np.array(lm - physical_origin) / length
         direction = torch.Tensor(direction)
 
-        return scan, direction, physical_origin
+        # Compute the scaling attribute
+        scale = 1 - (128 / length)
+                
+        return scan, direction, scale
 
 
 # if __name__ == "__main__":
 #     data_dir="/home/luciacev/Desktop/Luc_Anchling/DATA/ALI_CBCT/Test"
-#     landmark = 'RPo'
+#     landmark = 'S'
 #     csv_path = os.path.join(data_dir, 'CSV', 'lm_{}'.format(landmark))
 
 #     df_train = pd.read_csv(os.path.join(csv_path, 'train.csv'))
@@ -234,8 +244,9 @@ class DatasetClass(Dataset):
 #     db.prepare_data()
 #     db.setup(stage='fit')
 
-#     dl_train = db.train_dataloader()
+#     dl = db.val_dataloader()
 
-#     for i, (scan, direction) in enumerate(dl_train):
-#         ic(scan.shape, direction.shape)
-#         break      
+#     for i, (scan, direction, scale) in enumerate(dl):
+#         ic(type(scale.item()), 128/(1-scale.item()))
+#         # print("========================================")
+#         break

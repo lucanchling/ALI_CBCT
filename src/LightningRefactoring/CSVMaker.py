@@ -46,7 +46,7 @@ def GenDict(data_dir):
 
     for img in glob.iglob(normpath, recursive=True):
         if os.path.isfile(img) and True in [ext in img for ext in [".nrrd", ".nii", ".nii.gz", ".mhd", ".dcm", ".DCM", 'gipl.gz']]:
-            patient = '_'.join(img.split('/')[-3:-1]).split('_dataset')[0] + '_' + img.split('/')[-1].split('.')[0].split('_scan')[0] #
+            patient = '_'.join(img.split('/')[-3:-1]).split('_dataset')[0] + '_' + img.split('/')[-1].split('.')[0].split('_scan')[0].split('_Or')[0].split('_OR')[0] #
             if patient not in DATA:
                 DATA[patient] = {}
             DATA[patient]['img'] = img
@@ -54,7 +54,7 @@ def GenDict(data_dir):
             
         if os.path.isfile(img) and True in [ext in img for ext in [".json"]]:
             if 'MERGED' in img:
-                patient = '_'.join(img.split('/')[-3:-1]).split('_dataset')[0] + '_' + img.split('/')[-1].split('_lm_MERGED')[0]
+                patient = '_'.join(img.split('/')[-3:-1]).split('_dataset')[0] + '_' + img.split('/')[-1].split('_lm_MERGED')[0].split('_Scanreg')[0].split('_Or')[0].split('_OR')[0]
                 if patient not in DATA:
                     DATA[patient] = {}
                 DATA[patient]['LM'] = img
@@ -79,9 +79,12 @@ def main(data_dir, output_dir, landmark, csv_summary=False):
 
     databis  = {}
     for patient in data.keys():
-        if data[patient][landmark] == True:
-            databis[patient] = {}
-            databis[patient] = data[patient]
+        try:
+            if data[patient][landmark] == True:
+                databis[patient] = {}
+                databis[patient] = data[patient]
+        except KeyError:
+            pass
     # ic(len(databis))
 
     lostcases = len(data)-len(databis)

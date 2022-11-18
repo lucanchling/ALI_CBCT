@@ -18,7 +18,7 @@ import SimpleITK as sitk
 import torch
 import json
 
-from DataModule import LoadJsonLandmarks
+from DataModule import LoadJsonLandmarks, RandRotateLandmarks
 
 def ApplyRotation(source,R):
     '''
@@ -59,28 +59,13 @@ def WriteJsonLandmarks(landmarks, img ,output_file):
         try:
             pos = landmarks[tempData['markups'][0]['controlPoints'][i]['label']].tolist()
         except KeyError:
-            pos = [150,150,150]
+            pass
         tempData['markups'][0]['controlPoints'][i]['position'] = [pos[0],pos[1],pos[2]]
     with open(output_file, 'w') as outfile:
         json.dump(tempData, outfile, indent=4)
 
-def RandRotateLandmarks(img, landmarks, x_range, y_range, z_range):
-    
-    randanglex = np.random.uniform(-x_range, x_range)
-    randangley = np.random.uniform(-y_range, y_range)
-    randanglez = np.random.uniform(-z_range, z_range)
-    R = sitk.Euler3DTransform()
-    R.SetRotation(randanglex, randangley, randanglez)
-    
-    img = sitk.Resample(image1=img, transform=R, interpolator=sitk.sitkAffine)
-
-    rotmatrix = np.array(R.GetMatrix()).reshape(3,3)
-    landmarks = ApplyRotation(landmarks, rotmatrix)
-    return img, landmarks
-
-
 if __name__ == "__main__":
-    data_dir="/home/luciacev/Desktop/Luc_Anchling/DATA/ALI_CBCT/Test"
+    data_dir="/home/luciacev/Desktop/Luc_Anchling/DATA/ALI_CBCT/RESAMPLED"  
     landmark = "N"
 
     csv_path = os.path.join(data_dir, 'CSV', 'lm_{}'.format(landmark))
@@ -88,7 +73,7 @@ if __name__ == "__main__":
 
     scan = sitk.ReadImage(df_train['scan_path'][0])
     lm = LoadJsonLandmarks(df_train['landmark_path'][0],landmark=None)
-    data = {'first': {'scan': sitk.GetArrayFromImage(scan), 'landmark': np.array([[lm[landmark]], [lm[landmark]]])}}
+    # data = {'first': {'scan': sitk.GetArrayFromImage(scan), 'landmark': np.array([[lm[landmark]], [lm[landmark]]])}}
     # ic(df_train['landmark_path'][0])
     spacing = np.array(scan.GetSpacing())
     origin = np.array(scan.GetOrigin())
@@ -134,20 +119,20 @@ if __name__ == "__main__":
     img, landmark = RandRotateLandmarks(scan, lm, x_range=np.pi/2, y_range=np.pi/2, z_range=np.pi/2)
     WriteJsonLandmarks(landmark,scan,output_file=data_dir+'/output.mrk.json')
 
-    scan_transformed = train_transform(torch.Tensor(sitk.GetArrayFromImage(img)).unsqueeze(0))
-    try:
-        cropParam = scan_transformed.__getattribute__('data').__getattribute__('applied_operations')[-1]['extra_info']['cropped']
-        # ic(cropParam)
+    # scan_transformed = train_transform(torch.Tensor(sitk.GetArrayFromImage(img)).unsqueeze(0))
+    # try:
+    #     cropParam = scan_transformed.__getattribute__('data').__getattribute__('applied_operations')[-1]['extra_info']['cropped']
+    #     # ic(cropParam)
 
-        cropStart = [cropParam[i] for i in range(0,len(cropParam),2)]
-        cropStart = cropStart[::-1]
-        # ic(cropStart)
-    except:
-        cropStart = [0,0,0]
+    #     cropStart = [cropParam[i] for i in range(0,len(cropParam),2)]
+    #     cropStart = cropStart[::-1]
+    #     # ic(cropStart)
+    # except:
+    #     cropStart = [0,0,0]
 
-    img = sitk.GetImageFromArray(scan_transformed.squeeze(0).numpy())
+    # img = sitk.GetImageFromArray(scan_transformed.squeeze(0).numpy())
     # ic(new_origin)
-    new_origin = origin - np.array([32,32,32])*spacing + cropStart*spacing
+    new_origin = origin #- np.array([32,32,32])*spacing + cropStart*spacing
     img.SetOrigin(new_origin)
     img.SetDirection(scan.GetDirection())
     img.SetSpacing(scan.GetSpacing())

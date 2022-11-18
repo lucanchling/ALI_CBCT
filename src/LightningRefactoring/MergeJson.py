@@ -27,6 +27,7 @@ def main(args):
         file1 = files[0]
         with open(file1, 'r') as f:
             data1 = json.load(f)
+            data1["@schema"] = "https://raw.githubusercontent.com/slicer/slicer/master/Modules/Loadable/Markups/Resources/Schema/markups-schema-v1.0.0.json#"
         for i in range(1,len(files)):
             with open(files[i], 'r') as f:
                 data = json.load(f)

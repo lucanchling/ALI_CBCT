@@ -41,10 +41,11 @@ def gen_plot(direction, direction_hat):
     ax.set_ylim([0, direction[1]+0.1])
     ax.set_zlim([0, direction[2]+0.1])
     ax.legend()
+    plt.title('DIRECTION:  {:.4f}  |  {:.4f}  |  {:.4f}\nDIRECTION_HAT :  {:.4f}  |  {:.4f}  |  {:.4f}'.format(direction[0],direction[1],direction[2],direction_hat[0],direction_hat[1],direction_hat[2]))
     plt.show()
 
 
-def main():
+def main(args):
     data_dir = "/home/luciacev/Desktop/Luc_Anchling/DATA/ALI_CBCT/Test"
 
     landmark = 'S'
@@ -77,12 +78,12 @@ def main():
                 ),
                 ])
 
-    db = DataModuleClass(df_train, df_val, df_test, landmark=landmark, batch_size=1, train_transform=train_transform, val_transform=val_transform, test_transform=val_transform)
+    db = DataModuleClass(df_train, df_val, df_test, landmark=landmark, batch_size=1, train_transform=None, val_transform=None, test_transform=None)
     db.setup('test')
-
+    
     model = EffNet(lr=0.0001)
 
-    model.load_state_dict(torch.load(os.path.join(out_dir,'checkpoints/epoch=65-val_loss=0.00.ckpt'))['state_dict'])
+    model.load_state_dict(torch.load(os.path.join(out_dir,'checkpoints/'+args.checkpoint+'.ckpt'))['state_dict'])
 
     model.to('cuda')
 
@@ -90,15 +91,21 @@ def main():
     ds_test = db.test_dataloader()
     with torch.no_grad():
         for i, batch in enumerate(ds_test):
-            scan, direction, physical_origin = batch
-            direction_pred = model(scan.to('cuda'))
+            scan, direction, scale = batch
+            direction_pred, scale_pred = model(scan.to('cuda'))
             direction_pred = direction_pred.cpu().numpy()
             direction = direction.numpy()
-
             # ic(direction_pred, direction)
-            direction_pred = direction_pred[0]# / np.linalg.norm(direction_pred[0])
-            gen_plot(direction[0], direction_pred)
+            # direction_pred = direction_pred[0]# / np.linalg.norm(direction_pred[0])
+            # gen_plot(direction[0], direction_pred[0])
+            # print(scale.item(),scale_pred.item())
             # break
+        for i in range(5):
+            print(model(torch.rand(1,1,128,128,128).to('cuda')))
+
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--checkpoint', type=str, default=None)
+    args = parser.parse_args()
+    main(args)    
