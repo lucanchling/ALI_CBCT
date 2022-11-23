@@ -10,13 +10,7 @@ import pytorch_lightning as pl
 import SimpleITK as sitk
 import json
 
-from monai.transforms import (
-    RandRotate,
-    SpatialPad,
-    RandSpatialCrop,
-    CenterSpatialCrop,
-    Compose,
-)
+
 
 def LoadJsonLandmarks(ldmk_path,landmark=None):
     """
@@ -58,46 +52,6 @@ def LoadJsonLandmarks(ldmk_path,landmark=None):
     else:
         return landmarks[landmark]
 
-def RandRotateLandmarks(scan, lm, x_range, y_range, z_range):
-    """
-    Apply a random rotation to scan & landmarks
-
-    Parameters 
-    ----------
-    scan : sitk.Image
-        Image to rotate
-    lm : dict
-        Dictionary of landmarks
-    x_range : tuple
-        Range of rotation in x
-    y_range : tuple
-        Range of rotation in y
-    z_range : tuple
-        Range of rotation in z
-
-    Returns
-    -------
-    scan : sitk.Image
-        Rotated image   
-    lm : torch.Tensor
-        Rotated landmarks
-    """
-
-    randanglex = np.random.uniform(-x_range, x_range)
-    randangley = np.random.uniform(-y_range, y_range)
-    randanglez = np.random.uniform(-z_range, z_range)
-    R = sitk.Euler3DTransform()
-    R.SetRotation(randanglex, randangley, randanglez)
-    
-    scan = sitk.Resample(image1=scan, transform=R, interpolator=sitk.sitkAffine)
-
-    rotmatrix = np.array(R.GetMatrix()).reshape(3,3)
-    try:    # if lm is a single landmark
-        lm = np.matmul(lm, rotmatrix)
-    except ValueError:  # if lm is a dict
-        lm = {key : np.matmul(lm[key], rotmatrix) for key in lm.keys()}
-    return scan, lm
-
 
 class DataModuleClass(pl.LightningDataModule):
     # It is used to store information regarding batch size, transforms, etc. 
@@ -124,7 +78,7 @@ class DataModuleClass(pl.LightningDataModule):
     # It’s usually used to handle the task of loading the data. (like splitting data, applying transform etc.)
         # Assign train/val datasets for use in dataloaders
         if stage == 'fit' or stage is None:
-            self.train_dataset = DatasetClass(df=self.df_train, mount_point=self.mount_point, landmark=self.landmark, transform=self.train_transform, RandomRotation=True)
+            self.train_dataset = DatasetClass(df=self.df_train, mount_point=self.mount_point, landmark=self.landmark, transform=self.train_transform)
             self.val_dataset = DatasetClass(df=self.df_val, mount_point=self.mount_point, landmark=self.landmark, transform=self.val_transform)
         # Assign test dataset for use in dataloader(s)
         if stage == 'test' or stage is None:
@@ -141,14 +95,12 @@ class DataModuleClass(pl.LightningDataModule):
 
 
 class DatasetClass(Dataset):
-    def __init__(self, df, mount_point='',landmark=None, transform=None, angle=np.pi/2, RandomRotation=False):
+    def __init__(self, df, mount_point='',landmark=None, transform=None):
         super().__init__()
         self.df = df
         self.transform = transform
         self.landmark = landmark
         self.mount_point = mount_point
-        self.RandomRotation = RandomRotation
-        self.angle = angle
 
     def __len__(self):
         return len(self.df)
@@ -164,9 +116,12 @@ class DatasetClass(Dataset):
 
         lm = LoadJsonLandmarks(lm_path, self.landmark)
 
-        if self.RandomRotation: # Random Rotation for training --> scan & landmarks
-            scan, lm = RandRotateLandmarks(scan, lm, x_range=self.angle, y_range=self.angle, z_range=self.angle)
+        # if self.RandomRotation: # Random Rotation for training --> scan & landmarks
+        #     scan, lm = RandRotateLandmarks(scan, lm, x_range=self.angle, y_range=self.angle, z_range=self.angle)
         
+        if self.transform is not None:
+            scan, lm = self.transform(scan, lm)
+
         scan = torch.Tensor(sitk.GetArrayFromImage(scan)).unsqueeze(0)  # Conversion for Monai transforms
 
         # if self.transform:
@@ -191,13 +146,36 @@ class DatasetClass(Dataset):
         direction = torch.Tensor(direction)
 
         # Compute the scaling attribute
-        scale = 1 - (128 / length)
+        scale = length / np.linalg.norm([128,128,128])
                 
-        return scan, direction, scale
+        return scan, direction, scale, scan_path.split('/')[-1]
 
+class RandomRotation3D(pl.LightningDataModule):
+    def __init__(self, x_angle=np.pi/2, y_angle=np.pi/2, z_angle=np.pi/2):
+        super().__init__()
+        self.x_angle = x_angle
+        self.y_angle = y_angle
+        self.z_angle = z_angle
+
+    def __call__(self, scan, lm):
+        randanglex = np.random.uniform(-self.x_angle, self.x_angle)
+        randangley = np.random.uniform(-self.y_angle, self.y_angle)
+        randanglez = np.random.uniform(-self.z_angle, self.z_angle)
+        R = sitk.Euler3DTransform()
+        R.SetRotation(randanglex, randangley, randanglez)
+        
+        scan = sitk.Resample(image1=scan, transform=R, interpolator=sitk.sitkAffine)
+
+        rotmatrix = np.array(R.GetMatrix()).reshape(3,3)
+        try:    # if lm is a single landmark
+            lm = np.matmul(lm, rotmatrix)
+        except ValueError:  # if lm is a dict
+            lm = {key : np.matmul(lm[key], rotmatrix) for key in lm.keys()}
+        
+        return scan, lm   
 
 # if __name__ == "__main__":
-#     data_dir="/home/luciacev/Desktop/Luc_Anchling/DATA/ALI_CBCT/Test"
+#     data_dir="/home/luciacev/Desktop/Luc_Anchling/DATA/ALI_CBCT/RESAMPLED/"
 #     landmark = 'S'
 #     csv_path = os.path.join(data_dir, 'CSV', 'lm_{}'.format(landmark))
 
@@ -211,42 +189,14 @@ class DatasetClass(Dataset):
 #     #     LM.append(LoadJsonLandmarks(sitk.ReadImage(df_train['scan_path'][i]),df_train['landmark_path'][i]).keys())
 #     # print([True if 'B' in i else False for i in LM])    
 
-#     train_transform = Compose([  
-#                 RandRotate(
-#                     range_x=np.pi/4,
-#                     range_y=np.pi/4,
-#                     range_z=np.pi/4,
-#                     prob=1,
-#                     keep_size=True,
-#                 ),
-#                 SpatialPad(
-#                     spatial_size=(160, 160, 160),
-#                     value=0,
-#                 ),
-#                 RandSpatialCrop(
-#                     roi_size=(128, 128, 128),
-#                     random_size=False,
-#                 ),
-#                 ])
-
-#     val_transform = Compose([
-#                 SpatialPad(
-#                     spatial_size=(160, 160, 160),
-#                     value=0,
-#                 ),
-#                 CenterSpatialCrop(
-#                     roi_size=(128, 128, 128),
-#                 ),
-#                 ])
-                
-#     db = DataModuleClass(df_train, df_val, df_test,landmark=landmark, batch_size=1, num_workers=0, train_transform=train_transform, val_transform=val_transform)
+#     db = DataModuleClass(df_train, df_val, df_test,landmark=landmark, batch_size=1, num_workers=0, train_transform=RandomRotation3D(angle=np.pi/2))
 
 #     db.prepare_data()
 #     db.setup(stage='fit')
 
-#     dl = db.val_dataloader()
-
-#     for i, (scan, direction, scale) in enumerate(dl):
-#         ic(type(scale.item()), 128/(1-scale.item()))
-#         # print("========================================")
+#     dl = db.train_dataloader()
+#     Scale, Length = [], []
+#     for i, (scan, direction, scale, path) in enumerate(dl):
+#         # write sitk image
+#         sitk.WriteImage(sitk.GetImageFromArray(scan.squeeze().numpy()), os.path.join(data_dir, 'TEST', 'scan_{}.nii.gz'.format(i)))
 #         break

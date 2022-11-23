@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from monai.networks.nets.efficientnet import EfficientNetBN
+from monai.networks.nets.fullyconnectednet import FullyConnectedNet
 import numpy as np
 from icecream import ic
 import pytorch_lightning as pl
@@ -13,7 +14,7 @@ class EffNet(pl.LightningModule):
     def __init__(self, lr):
         super().__init__()
         self.lr = lr
-        self.net = EfficientNetBN('efficientnet-b0', spatial_dims=3, in_channels=1,num_classes=4,pretrained=False)
+        self.net = EfficientNetBN('efficientnet-b0', spatial_dims=3, in_channels=1,num_classes=4)
         self.CosSimLoss = nn.CosineSimilarity()
         self.MSELoss = nn.MSELoss(reduction='sum')
 
@@ -27,10 +28,11 @@ class EffNet(pl.LightningModule):
         return direction, scale
 
     def training_step(self, batch, batch_idx):
-        scan, direction, scale = batch
+        scan, direction, scale, scan_path = batch
         batch_size = scan.shape[0]
 
         direction_hat, scale_hat = self(scan)
+        # ic(direction_hat, scale)
         # scale_hat = torch.cat([scale_hat]*int(batch_size))
         
         # ic(self.MSELoss(scale_hat.float(), scale.float()))
@@ -38,25 +40,24 @@ class EffNet(pl.LightningModule):
         # Sum the loss over the batch
         loss = loss.sum() + self.MSELoss(scale_hat.float(), scale.float())
         # ic(loss)
-        self.log('train_loss', loss)
+        self.log('train_loss', loss, batch_size=batch_size)
         
         return loss
 
     def validation_step(self, batch, batch_idx):
-        scan, direction, scale = batch
+        scan, direction, scale, scan_path = batch
         batch_size = scan.shape[0]
-
         direction_hat, scale_hat = self(scan)
-        
+        # ic(direction_hat, scale_hat)
         # scale_hat = torch.cat([scale_hat]*int(batch_size))
         loss = (1 - self.CosSimLoss(direction_hat, direction))
         loss = loss.sum() + self.MSELoss(scale_hat.float(), scale.float())
-        self.log('val_loss', loss)
+        self.log('val_loss', loss, batch_size=batch_size)
         
         return loss
 
     def test_step(self, batch, batch_idx):
-        scan, direction, scale = batch
+        scan, direction, scale, scan_path = batch
         batch_size = scan.shape[0]
 
         direction_hat, scale_hat = self(scan)
@@ -65,7 +66,7 @@ class EffNet(pl.LightningModule):
         
         loss = (1 - self.CosSimLoss(direction_hat, direction))
         loss = loss.sum() + self.MSELoss(scale_hat.float(), scale.float())
-        self.log('test_loss', loss)
+        self.log('test_loss', loss, batch_size=batch_size)
         
         return loss
 

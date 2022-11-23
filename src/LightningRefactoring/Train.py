@@ -7,7 +7,7 @@ import argparse
 import torch
 
 from Net import EffNet
-from DataModule import DataModuleClass
+from DataModule import DataModuleClass, RandomRotation3D
 
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
@@ -63,7 +63,7 @@ def main(args):
                 ),
                 ])
 
-    db = DataModuleClass(df_train, df_val, df_test, landmark=args.landmark, batch_size=args.batch_size, num_workers=args.num_workers, train_transform=None, val_transform=None, test_transform=None)
+    db = DataModuleClass(df_train, df_val, df_test, landmark=args.landmark, batch_size=args.batch_size, num_workers=args.num_workers, train_transform=RandomRotation3D(x_angle=np.pi/4, y_angle=np.pi/4, z_angle=np.pi/4), val_transform=None, test_transform=None, mount_point=mount_point)
     
     model = EffNet(lr=args.lr)
     
@@ -93,7 +93,7 @@ def main(args):
 if __name__ == '__main__':
 
     
-    data_dir = "/home/luciacev/Desktop/Luc_Anchling/DATA/ALI_CBCT/Test"
+    data_dir = "/home/luciacev/Desktop/Luc_Anchling/DATA/ALI_CBCT/RESAMPLED"
     landmark = 'N'
     out_dir = "/home/luciacev/Desktop/Luc_Anchling/Training_ALI/lm_"+landmark+"/"
 

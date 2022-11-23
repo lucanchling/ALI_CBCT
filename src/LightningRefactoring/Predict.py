@@ -46,9 +46,9 @@ def gen_plot(direction, direction_hat):
 
 
 def main(args):
-    data_dir = "/home/luciacev/Desktop/Luc_Anchling/DATA/ALI_CBCT/Test"
+    data_dir = "/home/luciacev/Desktop/Luc_Anchling/DATA/ALI_CBCT/RESAMPLED"
 
-    landmark = 'S'
+    landmark = args.landmark
     out_dir = "/home/luciacev/Desktop/Luc_Anchling/Training_ALI/lm_"+landmark+"/"
     
     csv_path = os.path.join(data_dir, 'CSV', 'lm_{}'.format(landmark))
@@ -86,15 +86,15 @@ def main(args):
     model.load_state_dict(torch.load(os.path.join(out_dir,'checkpoints/'+args.checkpoint+'.ckpt'))['state_dict'])
 
     model.to('cuda')
-
+    
     model.eval()
     ds_test = db.test_dataloader()
     with torch.no_grad():
-        for i, batch in enumerate(ds_test):
-            scan, direction, scale = batch
-            direction_pred, scale_pred = model(scan.to('cuda'))
-            direction_pred = direction_pred.cpu().numpy()
-            direction = direction.numpy()
+        # for i, batch in enumerate(ds_test):
+            # scan, direction, scale = batch
+            # direction_pred, scale_pred = model(scan.to('cuda'))
+            # direction_pred = direction_pred.cpu().numpy()
+            # direction = direction.numpy()
             # ic(direction_pred, direction)
             # direction_pred = direction_pred[0]# / np.linalg.norm(direction_pred[0])
             # gen_plot(direction[0], direction_pred[0])
@@ -106,6 +106,7 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument('--landmark', type=str, required=True)
     parser.add_argument('--checkpoint', type=str, default=None)
     args = parser.parse_args()
     main(args)    

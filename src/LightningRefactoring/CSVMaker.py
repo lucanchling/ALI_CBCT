@@ -66,7 +66,7 @@ def GenDict(data_dir):
 
     return DATA
 
-def main(data_dir, output_dir, landmark, csv_summary=False):
+def main(data_dir, output_dir, landmark=None, csv_summary=False):
     # data_dir = args.data_dir
 
     data = GenDict(data_dir)
@@ -76,17 +76,20 @@ def main(data_dir, output_dir, landmark, csv_summary=False):
         write_csv_from_dict(data_dir, 'alldata.csv',data,ldmk='All')
 
     # landmark = args.landmark
+    if landmark is not None:
 
-    databis  = {}
-    for patient in data.keys():
-        try:
-            if data[patient][landmark] == True:
-                databis[patient] = {}
-                databis[patient] = data[patient]
-        except KeyError:
-            pass
-    # ic(len(databis))
-
+        databis  = {}
+        for patient in data.keys():
+            try:
+                if data[patient][landmark] == True:
+                    databis[patient] = {}
+                    databis[patient] = data[patient]
+            except KeyError:
+                pass
+        # ic(len(databis))
+    else:
+        databis = data
+        
     lostcases = len(data)-len(databis)
     # ic(lostcases)
     
@@ -118,13 +121,18 @@ if __name__ == '__main__':
 
     # args = parser.parse_args()
 
-    for landmark in ALL_LANDMARKS:
+    # for landmark in ALL_LANDMARKS:
 
-        data_dir = '/home/luciacev/Desktop/Luc_Anchling/DATA/ALI_CBCT/Test'
-        output_dir = data_dir + '/CSV/lm_' + landmark
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
-            # print("=========================================")
-            # print("For landmark:", landmark)
-            main(data_dir, output_dir, landmark)
+    #     data_dir = '/home/luciacev/Desktop/Luc_Anchling/DATA/ALI_CBCT/Test'
+    #     output_dir = data_dir + '/CSV/lm_' + landmark
+    #     if not os.path.exists(output_dir):
+    #         os.makedirs(output_dir)
+    #         # print("=========================================")
+    #         # print("For landmark:", landmark)
+    #         main(data_dir, output_dir, landmark)
     
+    data_dir = '/home/luciacev/Desktop/Luc_Anchling/DATA/ALI_CBCT/RESAMPLED'
+    output_dir = data_dir + '/CSV/ALL'
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    main(data_dir, output_dir, landmark=None)
