@@ -59,7 +59,8 @@ def main(args):
         "scale_keys" : GV.SCALE_KEYS,
         "spawn_rad" : args.spawn_radius,
         "speed_per_scale" : args.speed_per_scale,
-        "verbose" : True
+        "verbose" : True,
+        "focus_radius" : args.focus_radius,
     }
 
     agent_lst = GetAgentLst(agents_param, GV.LABELS_TO_TRAIN)
@@ -138,7 +139,7 @@ if __name__ ==  '__main__':
 
     #Environment
     # input_group.add_argument('-lm','--landmark_group',nargs="+",type=str,help="Prepare the data for uper and/or lower landmark training (ex: U L CB CI)", default=["CI"])
-    input_group.add_argument('-sp', '--scale_spacing', nargs="+", type=float, help='Spacing of the different scales', default=[0.3,0.08])
+    input_group.add_argument('-sp', '--scale_spacing', nargs="+", type=float, help='Spacing of the different scales', default=[0.3,1])
     input_group.add_argument('-ts', '--training_scales', nargs="+", type=float, help='Scale to train', default=[0,1])
 
 
