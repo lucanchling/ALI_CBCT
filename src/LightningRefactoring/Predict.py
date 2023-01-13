@@ -28,7 +28,7 @@ import matplotlib.pyplot as plt
 from DataModule import LoadJsonLandmarks
 
 
-def gen_plot(direction, direction_hat):
+def gen_plot(direction, direction_hat, scale, scale_hat):
     """Create a pyplot plot and save to buffer."""
     plt.figure()
     ax = plt.axes(projection='3d')
@@ -37,11 +37,12 @@ def gen_plot(direction, direction_hat):
     ax.set_xlabel('X Label')
     ax.set_ylabel('Y Label')
     ax.set_zlabel('Z Label')
-    ax.set_xlim([0, direction[0]+0.1])
-    ax.set_ylim([0, direction[1]+0.1])
-    ax.set_zlim([0, direction[2]+0.1])
+    ax.set_xlim([-.5, .5])
+    ax.set_ylim([-.5, .5])
+    ax.set_zlim([-.5, .5])
     ax.legend()
-    plt.title('DIRECTION:  {:.4f}  |  {:.4f}  |  {:.4f}\nDIRECTION_HAT :  {:.4f}  |  {:.4f}  |  {:.4f}'.format(direction[0],direction[1],direction[2],direction_hat[0],direction_hat[1],direction_hat[2]))
+    plt.title('Scale : {:.4f}  |  Scale_hat : {:.4f}'.format(scale,scale_hat))
+    # plt.title('DIRECTION:  {:.4f}  |  {:.4f}  |  {:.4f}\nDIRECTION_HAT :  {:.4f}  |  {:.4f}  |  {:.4f}'.format(direction[0],direction[1],direction[2],direction_hat[0],direction_hat[1],direction_hat[2]))
     plt.show()
 
 
@@ -83,25 +84,26 @@ def main(args):
     
     model = EffNet(lr=0.0001)
 
-    model.load_state_dict(torch.load(os.path.join(out_dir,'checkpoints/'+args.checkpoint+'.ckpt'))['state_dict'])
+    model.load_state_dict(torch.load(args.checkpoint)['state_dict'])
 
     model.to('cuda')
     
     model.eval()
     ds_test = db.test_dataloader()
     with torch.no_grad():
-        # for i, batch in enumerate(ds_test):
-            # scan, direction, scale = batch
-            # direction_pred, scale_pred = model(scan.to('cuda'))
-            # direction_pred = direction_pred.cpu().numpy()
-            # direction = direction.numpy()
+        for i, batch in enumerate(ds_test):
+            scan, direction, scale, scan_path = batch
+            direction_pred, scale_pred = model(scan.to('cuda'))
+            direction_pred = direction_pred.cpu().numpy()
+            direction = direction.numpy()
             # ic(direction_pred, direction)
+            # ic(scale_pred,scale)
             # direction_pred = direction_pred[0]# / np.linalg.norm(direction_pred[0])
-            # gen_plot(direction[0], direction_pred[0])
+            gen_plot(direction[0], direction_pred[0], scale.item(), scale_pred.item())
             # print(scale.item(),scale_pred.item())
             # break
-        for i in range(5):
-            print(model(torch.rand(1,1,128,128,128).to('cuda')))
+        # for i in range(5):
+        #     print(model(torch.rand(1,1,128,128,128).to('cuda')))
 
 
 if __name__ == "__main__":

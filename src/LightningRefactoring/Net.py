@@ -1,9 +1,7 @@
-import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from monai.networks.nets.efficientnet import EfficientNetBN
-from monai.networks.nets.fullyconnectednet import FullyConnectedNet
+from monai.networks.nets.densenet import DenseNet121
 import numpy as np
 from icecream import ic
 import pytorch_lightning as pl
@@ -14,7 +12,7 @@ class EffNet(pl.LightningModule):
     def __init__(self, lr):
         super().__init__()
         self.lr = lr
-        self.net = EfficientNetBN('efficientnet-b0', spatial_dims=3, in_channels=1,num_classes=4)
+        self.net = DenseNet121(spatial_dims=3, in_channels=1,out_channels=4)
         self.CosSimLoss = nn.CosineSimilarity()
         self.MSELoss = nn.MSELoss(reduction='sum')
 

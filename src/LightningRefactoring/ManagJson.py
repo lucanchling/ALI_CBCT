@@ -2,8 +2,18 @@ import json
 import os
 import glob
 import argparse
+import shutil 
 
-def main(args):
+
+def GetJsonFiles(data_dir):
+
+    normpath = os.path.normpath("/".join([data_dir, '**', '']))
+    json_file = [i for i in sorted(glob.iglob(normpath, recursive=True)) if i.endswith('.json')]
+
+    return json_file
+
+
+def MergeJSON(args):
     
     data_dir = args.data_dir
 
@@ -11,8 +21,7 @@ def main(args):
     #     os.system('rm -rf ' + out_dir)
     # os.mkdir(out_dir)
     
-    normpath = os.path.normpath("/".join([data_dir, '**', '']))
-    json_file = [i for i in sorted(glob.iglob(normpath, recursive=True)) if i.endswith('.json')]
+    json_file = GetJsonFiles(data_dir)
 
     # ==================== ALL JSON classified by patient  ====================
     dict_list = {}
@@ -41,12 +50,61 @@ def main(args):
         for file in files:
             os.remove(file)    
 
+def GetDic(data_dir):
+    json_file = GetJsonFiles(data_dir)
+
+    dict_list = {} 
+    for file in json_file:
+        patient = '_'.join(file.split('/')[-3:-1])
+        if patient not in dict_list:
+            dict_list[patient] = []
+        dict_list[patient].append(file)
+    return dict_list
+
+def MoveJsonToFolder(args):
+
+    data_dir = args.data_dir
+
+    dict_list = GetDic(data_dir)
+
+    for key in dict_list.keys():
+        for lm_file in dict_list[key]:
+            shutil.copy(lm_file,os.path.join(args.out_dir,key,'_'.join([key,'lm',os.path.basename(lm_file).split('_lm_')[1]])))
+
+
+def CleanJson(json_path):
+    '''
+    Remove labels that dont have any position attribute'''
+    with open(json_path) as f:
+        data = json.load(f)
+    
+    markups = data["markups"][0]["controlPoints"]
+
+    new_markups = [markup for markup in markups if isinstance(markup['position'],list)]
+
+    data["markups"][0]["controlPoints"] = new_markups
+
+    with open(json_path,'w') as f:
+        json.dump(data,f,indent=4)
+
+
+def main(args):
+
+    data_dir = args.data_dir
+
+    json_files = GetJsonFiles(data_dir)
+
+    for file in json_files:
+        CleanJson(file)
+
 
 if __name__ == "__main__":
     
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data_dir',help='directory where json files to merge are',type=str,required=True)
+    parser.add_argument('--data_dir',help='directory where json files to merge are',type=str,default='/home/luciacev/Desktop/Luc_Anchling/ALICBCT/TRAINING/data/Patients')#required=True)
+    parser.add_argument('--out_dir',help='output',type=str,default='/home/luciacev/Desktop/Luc_Anchling/DATA/ALI_CBCT/ALIINIT')#required=True)
     parser.add_argument('--extension',help='extension of new merged json files',type=str,default='MERGED')
     args = parser.parse_args()
 
     main(args)
+    

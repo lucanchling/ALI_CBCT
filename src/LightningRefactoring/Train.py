@@ -63,7 +63,7 @@ def main(args):
                 ),
                 ])
 
-    db = DataModuleClass(df_train, df_val, df_test, landmark=args.landmark, batch_size=args.batch_size, num_workers=args.num_workers, train_transform=RandomRotation3D(x_angle=np.pi/4, y_angle=np.pi/4, z_angle=np.pi/4), val_transform=None, test_transform=None, mount_point=mount_point)
+    db = DataModuleClass(df_train, df_val, df_test, landmark=args.landmark, batch_size=args.batch_size, num_workers=args.num_workers, train_transform=RandomRotation3D(x_angle=args.angle, y_angle=args.angle, z_angle=args.angle), val_transform=None, test_transform=None, mount_point=mount_point)
     
     model = EffNet(lr=args.lr)
     
@@ -90,6 +90,16 @@ def main(args):
 
     # print the path of the best model
     ic(trainer.checkpoint_callback.best_model_path)
+
+    if not os.path.exists(os.path.join(args.out, 'Models')):
+        os.mkdir(os.path.join(args.out, 'Models'))
+    
+    # save the best model to Models folder
+    os.rename(trainer.checkpoint_callback.best_model_path, os.path.join(args.out, 'Models', "lr"+"{:.0e}".format(args.lr)+"_bs"+str(args.batch_size)+"_angle"+str(round(args.angle,2))+".ckpt"))
+    
+    # rename tb dir Version_0 to lr=args.lr ; bs=args.batch_size
+    os.rename(os.path.join(args.out, args.tb_dir,'version_0'), os.path.join(args.out,args.tb_dir, "lr="+"{:.0e}".format(args.lr)+" ; bs="+str(args.batch_size)+" ; angle="+str(round(args.angle,2))))
+
 if __name__ == '__main__':
 
     
@@ -109,8 +119,9 @@ if __name__ == '__main__':
     parser.add_argument('--mount_point', help='Dataset mount directory', type=str, default=data_dir)
     parser.add_argument('--num_workers', help='Number of workers for loading', type=int, default=10)
     parser.add_argument('--batch_size', help='Batch size', type=int, default=25)
-    parser.add_argument('--patience', help='Patience for early stopping', type=int, default=15)
+    parser.add_argument('--patience', help='Patience for early stopping', type=int, default=30)
     parser.add_argument('--landmark',help='landmark to train',type=str,default=landmark)
+    parser.add_argument('--angle',help='x,y and z angle range for random rotation',type=str,default=np.pi/2)
 
     parser.add_argument('--tb_dir', help='Tensorboard output dir', type=str, default=out_dir+'tb_logs/')
 
