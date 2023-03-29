@@ -111,6 +111,7 @@ class DatasetClass(Dataset):
         lm_path = self.df['landmark_path'][idx]
 
         scan = sitk.ReadImage(scan_path)
+        size = np.array(scan.GetSize())
         spacing = np.array(scan.GetSpacing())
         origin = np.array(scan.GetOrigin())
 
@@ -146,9 +147,9 @@ class DatasetClass(Dataset):
         direction = torch.Tensor(direction)
 
         # Compute the scaling attribute
-        scale = length / np.linalg.norm([128,128,128])
+        scale = length / np.linalg.norm(size * spacing)
                 
-        return scan, direction, scale, scan_path.split('/')[-1]
+        return scan, direction, scale, scan_path, lm
 
 class RandomRotation3D(pl.LightningDataModule):
     def __init__(self, x_angle=np.pi/2, y_angle=np.pi/2, z_angle=np.pi/2):

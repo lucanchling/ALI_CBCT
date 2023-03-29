@@ -28,6 +28,8 @@ def main(args):
     
     mount_point = args.mount_point
 
+    out_dir = os.path.join(args.out,'lm_{}'.format(args.landmark))
+
     csv_path = os.path.join(mount_point, 'CSV', 'lm_{}'.format(args.landmark))
 
     df_train = pd.read_csv(os.path.join(csv_path, args.csv_train))
@@ -36,7 +38,7 @@ def main(args):
 
 
     checkpoint_callback = ModelCheckpoint(
-        dirpath= args.out + 'checkpoints',
+        dirpath= os.path.join(out_dir,'checkpoints'),
         filename='{epoch}-{val_loss:.2f}',
         save_top_k=2,
         monitor='val_loss'
@@ -72,7 +74,7 @@ def main(args):
     direction_logger = DirectionLogger(log_steps=args.log_every_n_steps)
 
     if args.tb_dir:
-        logger = TensorBoardLogger(save_dir=args.tb_dir, name=None)
+        logger = TensorBoardLogger(save_dir=os.path.join(out_dir, args.tb_dir), name=None)
         
     trainer = pl.Trainer(
         logger=logger,
@@ -86,45 +88,45 @@ def main(args):
 
     trainer.fit(model, datamodule=db)#, ckpt_path=args.model)
     
-    trainer.test(datamodule=db)
+    trainer.test(datamodule=db,ckpt_path='best')
 
     # print the path of the best model
     ic(trainer.checkpoint_callback.best_model_path)
 
-    if not os.path.exists(os.path.join(args.out, 'Models')):
-        os.mkdir(os.path.join(args.out, 'Models'))
+    if not os.path.exists(os.path.join(out_dir, 'Models')):
+        os.mkdir(os.path.join(out_dir, 'Models'))
     
     # save the best model to Models folder
-    os.rename(trainer.checkpoint_callback.best_model_path, os.path.join(args.out, 'Models', "lr"+"{:.0e}".format(args.lr)+"_bs"+str(args.batch_size)+"_angle"+str(round(args.angle,2))+".ckpt"))
+    os.rename(trainer.checkpoint_callback.best_model_path, os.path.join(out_dir, 'Models', "lr"+"{:.0e}".format(args.lr)+"_bs"+str(args.batch_size)+"_angle"+str(round(args.angle,2))+".ckpt"))
     
     # rename tb dir Version_0 to lr=args.lr ; bs=args.batch_size
-    os.rename(os.path.join(args.out, args.tb_dir,'version_0'), os.path.join(args.out,args.tb_dir, "lr="+"{:.0e}".format(args.lr)+" ; bs="+str(args.batch_size)+" ; angle="+str(round(args.angle,2))))
+    os.rename(os.path.join(out_dir, args.tb_dir,'version_0'), os.path.join(out_dir,args.tb_dir, "lr="+"{:.0e}".format(args.lr)+" ; bs="+str(args.batch_size)+" ; angle="+str(round(args.angle,2))))
 
 if __name__ == '__main__':
 
     
-    data_dir = "/home/luciacev/Desktop/Luc_Anchling/DATA/ALI_CBCT/RESAMPLED"
-    landmark = 'N'
-    out_dir = "/home/luciacev/Desktop/Luc_Anchling/Training_ALI/lm_"+landmark+"/"
+    # data_dir = "/home/luciacev/Desktop/Luc_Anchling/DATA/ALI_CBCT/RESAMPLED"
+    # landmark = 'N'
+    # out_dir = "/home/luciacev/Desktop/Luc_Anchling/Training_ALI/lm_"+landmark+"/"
 
     parser = argparse.ArgumentParser(description='ALI CBCT Training')
+    parser.add_argument('--mount_point', help='Dataset mount directory', type=str, default='')
+    parser.add_argument('--out', help='Output', type=str, default='')
     parser.add_argument('--csv_train', help='CSV with Scan and Landmarks files', type=str, default='train.csv')    
     parser.add_argument('--csv_valid', help='CSV with Scan and Landmarks files', type=str, default='val.csv')
     parser.add_argument('--csv_test', help='CSV with Scan and Landmarks files', type=str, default='test.csv')      
     parser.add_argument('--lr', '--learning-rate', default=1e-4, type=float, help='Learning rate')
     parser.add_argument('--log_every_n_steps', help='Log every n steps', type=int, default=1)    
-    parser.add_argument('--epochs', help='Max number of epochs', type=int, default=200)    
+    parser.add_argument('--epochs', help='Max number of epochs', type=int, default=200)
     parser.add_argument('--model', help='Model to continue training', type=str, default= None)
-    parser.add_argument('--out', help='Output', type=str, default=out_dir)
-    parser.add_argument('--mount_point', help='Dataset mount directory', type=str, default=data_dir)
     parser.add_argument('--num_workers', help='Number of workers for loading', type=int, default=10)
     parser.add_argument('--batch_size', help='Batch size', type=int, default=25)
     parser.add_argument('--patience', help='Patience for early stopping', type=int, default=30)
-    parser.add_argument('--landmark',help='landmark to train',type=str,default=landmark)
-    parser.add_argument('--angle',help='x,y and z angle range for random rotation',type=str,default=np.pi/2)
+    parser.add_argument('--landmark',help='landmark to train',type=str,default='N')
+    parser.add_argument('--angle',help='x,y and z angle range for random rotation',type=float,default=np.pi/2)
 
-    parser.add_argument('--tb_dir', help='Tensorboard output dir', type=str, default=out_dir+'tb_logs/')
-
+    parser.add_argument('--tb_dir', help='Tensorboard output dir', type=str, default='tb_logs/')
+    
     args = parser.parse_args()
 
     main(args)

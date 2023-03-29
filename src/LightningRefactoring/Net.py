@@ -26,7 +26,7 @@ class EffNet(pl.LightningModule):
         return direction, scale
 
     def training_step(self, batch, batch_idx):
-        scan, direction, scale, scan_path = batch
+        scan, direction, scale, scan_path, _ = batch
         batch_size = scan.shape[0]
 
         direction_hat, scale_hat = self(scan)
@@ -43,7 +43,7 @@ class EffNet(pl.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
-        scan, direction, scale, scan_path = batch
+        scan, direction, scale, scan_path, _ = batch
         batch_size = scan.shape[0]
         direction_hat, scale_hat = self(scan)
         # ic(direction_hat, scale_hat)
@@ -55,7 +55,7 @@ class EffNet(pl.LightningModule):
         return loss
 
     def test_step(self, batch, batch_idx):
-        scan, direction, scale, scan_path = batch
+        scan, direction, scale, scan_path, _ = batch
         batch_size = scan.shape[0]
 
         direction_hat, scale_hat = self(scan)

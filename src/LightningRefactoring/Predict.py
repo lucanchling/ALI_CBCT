@@ -8,6 +8,7 @@ import torch
 
 from Net import EffNet
 from DataModule import DataModuleClass
+from utils import WriteJson
 
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
@@ -25,7 +26,6 @@ from monai.transforms import (
 )
 import matplotlib.pyplot as plt
 
-from DataModule import LoadJsonLandmarks
 
 
 def gen_plot(direction, direction_hat, scale, scale_hat):
@@ -47,9 +47,10 @@ def gen_plot(direction, direction_hat, scale, scale_hat):
 
 
 def main(args):
-    data_dir = "/home/luciacev/Desktop/Luc_Anchling/DATA/ALI_CBCT/RESAMPLED"
+    data_dir = "/home/luciacev/Desktop/Luc_Anchling/DATA/ALI_CBCT/ALLRESAMPLED"
 
     landmark = args.landmark
+
     out_dir = "/home/luciacev/Desktop/Luc_Anchling/Training_ALI/lm_"+landmark+"/"
     
     csv_path = os.path.join(data_dir, 'CSV', 'lm_{}'.format(landmark))
@@ -92,14 +93,23 @@ def main(args):
     ds_test = db.test_dataloader()
     with torch.no_grad():
         for i, batch in enumerate(ds_test):
-            scan, direction, scale, scan_path = batch
+            scan, direction, scale, scan_path, lm = batch
             direction_pred, scale_pred = model(scan.to('cuda'))
             direction_pred = direction_pred.cpu().numpy()
             direction = direction.numpy()
+
+            img = sitk.ReadImage(scan_path[0])
+            spacing = np.array(img.GetSpacing())
+            origin = np.array(img.GetOrigin())
+            size = np.array(img.GetSize())
+
+            dict_landmark = {landmark:np.array(lm[0]), '{}_pred'.format(landmark): origin + direction_pred[0] * scale_pred.item() * np.linalg.norm(size*spacing)}
+            WriteJson(dict_landmark,os.path.join(out_dir, 'pred', os.path.basename(scan_path[0]).replace('.nii.gz','.mrk.json')))
+
             # ic(direction_pred, direction)
             # ic(scale_pred,scale)
             # direction_pred = direction_pred[0]# / np.linalg.norm(direction_pred[0])
-            gen_plot(direction[0], direction_pred[0], scale.item(), scale_pred.item())
+            # gen_plot(direction[0], direction_pred[0], scale.item(), scale_pred.item())
             # print(scale.item(),scale_pred.item())
             # break
         # for i in range(5):
@@ -108,7 +118,7 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--landmark', type=str, required=True)
-    parser.add_argument('--checkpoint', type=str, default=None)
+    parser.add_argument('--landmark', type=str, default='ANS')
+    parser.add_argument('--checkpoint', type=str, default='/home/luciacev/Desktop/Luc_Anchling/Training_ALI/lm_ANS/Models/lr1e-04_bs35_angle0.5.ckpt')
     args = parser.parse_args()
     main(args)    
