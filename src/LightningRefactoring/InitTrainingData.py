@@ -128,7 +128,7 @@ def GetPatients(data_dir):
             
             patient_name = basename.split("_Or")[0].split("_lm")[0].split('_scan')[0].split('_Scan')[0].split('_OR')[0].split('.')[0]
 
-            patient = img_fn.split('/{}'.format([patient_name]))[0].split('/')[-1] + '_' + [patient_name]
+            patient = img_fn.split('/{}'.format(patient_name))[0].split('/')[-1] + '_' + patient_name
             
             if patient not in patients.keys():
                 patients[patient] = {"dir": os.path.dirname(img_fn)}
@@ -187,7 +187,7 @@ def InitScan(args, patients, shared_list, num_worker):
         low_res_size = [128, 128, 128]
         low_res_spacing = [1.8264, 1.8264, 1.8264]
 
-        high_res_spacing = [0.3, 0.3, 0.3]
+        high_res_spacing = [1,1,1]#[0.3, 0.3, 0.3]
 
         LowResScanOutPath = os.path.join(OutPath,os.path.basename(scan).replace('.nii.gz','_LD.nii.gz'))
         HighResScanOutPath = os.path.join(OutPath,os.path.basename(scan).replace('.nii.gz','_HD.nii.gz'))
@@ -251,7 +251,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     
     parser.add_argument('--data_dir', type=str, default='/home/luciacev/Desktop/Luc_Anchling/DATA/ALI_CBCT/ALLDATA', help='path to data directory')
-    parser.add_argument('--out_dir', type=str, default='/home/luciacev/Desktop/Luc_Anchling/DATA/ALI_CBCT/ALLDATAOUT', help='path to out directory')
+    parser.add_argument('--out_dir', type=str, default='/home/luciacev/Desktop/Luc_Anchling/DATA/ALI_CBCT/TEST', help='path to out directory')
     parser.add_argument('-nw', '--nb_workers', type=int, default=1, help='number of CPU workers for multiprocessing')
 
     args = parser.parse_args()
