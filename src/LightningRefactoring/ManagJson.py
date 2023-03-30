@@ -13,15 +13,13 @@ def GetJsonFiles(data_dir):
     return json_file
 
 
-def MergeJSON(args):
-    
-    data_dir = args.data_dir
+def MergeJson(data_dir,extension='MERGED'):
+    """
+    Create one MERGED json file per scans from all the different json files (Upper, Lower...)
+    """
 
-    # if os.path.exists(out_dir):
-    #     os.system('rm -rf ' + out_dir)
-    # os.mkdir(out_dir)
-    
-    json_file = GetJsonFiles(data_dir)
+    normpath = os.path.normpath("/".join([data_dir, '**', '']))
+    json_file = [i for i in sorted(glob.iglob(normpath, recursive=True)) if i.endswith('.json')]
 
     # ==================== ALL JSON classified by patient  ====================
     dict_list = {}
@@ -42,13 +40,14 @@ def MergeJSON(args):
                 data = json.load(f)
             data1['markups'][0]['controlPoints'].extend(data['markups'][0]['controlPoints'])
         outpath = os.path.normpath("/".join(files[0].split('/')[:-1]))        # Write the merged json file
-        with open(outpath+'/'+key.split('#')[1] + '_'+ args.extension +'.mrk.json', 'w') as f: #out_dir + '/' + key.split('#')[0].split('_dataset')[0] + '_' + key.split('#')[1] + '_MERGED.mrk.json', 'w') as f:
+        with open(outpath+'/'+key.split('#')[1] + '_'+ extension +'.mrk.json', 'w') as f: 
             json.dump(data1, f, indent=4)
 
     # ==================== DELETE UNUSED JSON  ====================
     for key, files in dict_list.items():
         for file in files:
-            os.remove(file)    
+            if extension not in os.path.basename(file):
+                os.remove(file)    
 
 def GetDic(data_dir):
     json_file = GetJsonFiles(data_dir)
