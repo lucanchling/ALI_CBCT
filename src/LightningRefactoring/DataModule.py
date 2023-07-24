@@ -1,16 +1,19 @@
 import os
 # os.environ['KMP_DUPLICATE_LIB_OK']='True'
-from glob import glob
 import numpy as np
 import pandas as pd
 from icecream import ic
 import torch
 from torch.utils.data import DataLoader, Dataset
+from monai.data import CacheDataset, list_data_collate
 import pytorch_lightning as pl
 import SimpleITK as sitk
 import json
+from monai.transforms import (
+    SpatialCrop,
+)
 
-
+from monai.transforms import Crop
 
 def LoadJsonLandmarks(ldmk_path,landmark=None):
     """
@@ -72,7 +75,7 @@ class DataModuleClass(pl.LightningDataModule):
     # On only ONE GPU. 
     # It’s usually used to handle the task of downloading the data. 
         pass
-
+    
     def setup(self, stage=None):
     # On ALL the available GPU. 
     # It’s usually used to handle the task of loading the data. (like splitting data, applying transform etc.)
@@ -85,14 +88,16 @@ class DataModuleClass(pl.LightningDataModule):
             self.test_dataset = DatasetClass(df=self.df_test, mount_point=self.mount_point, landmark=self.landmark, transform=self.test_transform)
 
     def train_dataloader(self):
+        # Cache the dataset during training
+        # train_ds = CacheDataset(data=self.train_dataset, num_workers=self.num_workers, cache_rate=1.0)
         return DataLoader(self.train_dataset, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=True)
 
     def val_dataloader(self):
+        # val_ds = CacheDataset(data=self.val_dataset, num_workers=self.num_workers, cache_rate=1.0)
         return DataLoader(self.val_dataset, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=False)
 
     def test_dataloader(self):
         return DataLoader(self.test_dataset, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=False)
-
 
 class DatasetClass(Dataset):
     def __init__(self, df, mount_point='',landmark=None, transform=None):
@@ -106,24 +111,40 @@ class DatasetClass(Dataset):
         return len(self.df)
 
     def __getitem__(self, idx):
-
-        scan_path = self.df['scan_path'][idx]
+        scan_HD_path = self.df['scan_HD_path'][idx]
+        scan_LD_path = self.df['scan_LD_path'][idx]
         lm_path = self.df['landmark_path'][idx]
 
-        scan = sitk.ReadImage(scan_path)
-        size = np.array(scan.GetSize())
-        spacing = np.array(scan.GetSpacing())
-        origin = np.array(scan.GetOrigin())
+        # Load Scan High Definition
+        scan_HD = sitk.ReadImage(scan_HD_path)
+        size_HD = np.array(scan_HD.GetSize())
+        spacing_HD = np.array(scan_HD.GetSpacing())
+        origin_HD = np.array(scan_HD.GetOrigin())
 
+        # Load Scan Low Definition
+        scan_LD = sitk.ReadImage(scan_LD_path)
+        size_LD = np.array(scan_LD.GetSize())
+        spacing_LD = np.array(scan_LD.GetSpacing())
+        origin_LD = np.array(scan_LD.GetOrigin())
+
+        # Load Landmarks
         lm = LoadJsonLandmarks(lm_path, self.landmark)
 
         # if self.RandomRotation: # Random Rotation for training --> scan & landmarks
         #     scan, lm = RandRotateLandmarks(scan, lm, x_range=self.angle, y_range=self.angle, z_range=self.angle)
         
         if self.transform is not None:
-            scan, lm = self.transform(scan, lm)
+            scan_LD, lm = self.transform(scan_LD, lm)
+            # print(os.path.basename(scan_LD_path), lm)
 
-        scan = torch.Tensor(sitk.GetArrayFromImage(scan)).unsqueeze(0)  # Conversion for Monai transforms
+            # Apply the crop to the scan
+        scan_HD_tensor = torch.Tensor(sitk.GetArrayFromImage(scan_HD)).unsqueeze(0)  # Conversion for Monai transforms
+        idx = [2,1,0]
+        image_center = np.array(scan_HD.TransformContinuousIndexToPhysicalPoint([i/2 for i in reversed(scan_HD.GetSize())]))
+        transform = SpatialCrop(roi_size=(150,200,200), roi_center = origin_HD+size_HD/2)# lm[idx]*spacing_LD  + np.array([64,64,64])*spacing_LD)
+        scan_HD_tensor = transform(scan_HD_tensor)
+
+        scan_LD = torch.Tensor(sitk.GetArrayFromImage(scan_LD)).unsqueeze(0)  # Conversion for Monai transforms
 
         # if self.transform:
             
@@ -137,7 +158,7 @@ class DatasetClass(Dataset):
         #     except:
         #         cropStart = [0,0,0]
 
-        physical_origin = origin #- np.array([32,32,32])*spacing + np.array(cropStart)*spacing
+        physical_origin = origin_LD #- np.array([32,32,32])*spacing + np.array(cropStart)*spacing
 
         # Compute the direction from the physical origin towards the Landmark position
         # direction = {key : np.array(value - physical_origin) / np.linalg.norm(value-physical_origin) for key,value in lm.items()}
@@ -147,9 +168,9 @@ class DatasetClass(Dataset):
         direction = torch.Tensor(direction)
 
         # Compute the scaling attribute
-        scale = length / np.linalg.norm(size * spacing)
+        scale = length / np.linalg.norm(size_LD * spacing_LD)
                 
-        return scan, direction, scale, scan_path, lm
+        return scan_HD_tensor, scan_LD_path, origin_HD, spacing_HD,lm#scan_LD, direction, scale, scan_LD_path, lm
 
 class RandomRotation3D(pl.LightningDataModule):
     def __init__(self, x_angle=np.pi/2, y_angle=np.pi/2, z_angle=np.pi/2):
@@ -175,29 +196,34 @@ class RandomRotation3D(pl.LightningDataModule):
         
         return scan, lm   
 
-# if __name__ == "__main__":
-#     data_dir="/home/luciacev/Desktop/Luc_Anchling/DATA/ALI_CBCT/RESAMPLED/"
-#     landmark = 'S'
-#     csv_path = os.path.join(data_dir, 'CSV', 'lm_{}'.format(landmark))
+if __name__ == "__main__":
+    data_dir="/home/luciacev/Desktop/Luc_Anchling/DATA/ALI_CBCT/TEST06"
+    landmark = 'N'
+    csv_path = os.path.join(data_dir, 'CSV', 'lm_{}'.format(landmark))
 
-#     df_train = pd.read_csv(os.path.join(csv_path, 'train.csv'))
-#     df_val = pd.read_csv(os.path.join(csv_path, 'val.csv'))
-#     df_test = pd.read_csv(os.path.join(csv_path, 'test.csv'))
+    df_train = pd.read_csv(os.path.join(csv_path, 'train.csv'))
+    df_val = pd.read_csv(os.path.join(csv_path, 'val.csv'))
+    df_test = pd.read_csv(os.path.join(csv_path, 'test.csv'))
 
-#     # test1()
-#     # LM=[]
-#     # for i in range(len(df_train)):
-#     #     LM.append(LoadJsonLandmarks(sitk.ReadImage(df_train['scan_path'][i]),df_train['landmark_path'][i]).keys())
-#     # print([True if 'B' in i else False for i in LM])    
+    # test1()
+    # LM=[]
+    # for i in range(len(df_train)):
+    #     LM.append(LoadJsonLandmarks(sitk.ReadImage(df_train['scan_path'][i]),df_train['landmark_path'][i]).keys())
+    # print([True if 'B' in i else False for i in LM])    
 
-#     db = DataModuleClass(df_train, df_val, df_test,landmark=landmark, batch_size=1, num_workers=0, train_transform=RandomRotation3D(angle=np.pi/2))
+    db = DataModuleClass(df_train, df_val, df_test,landmark=landmark, batch_size=1, num_workers=0, train_transform=None)#RandomRotation3D(0,0,0))
 
-#     db.prepare_data()
-#     db.setup(stage='fit')
+    db.prepare_data()
+    db.setup(stage='fit')
 
-#     dl = db.train_dataloader()
-#     Scale, Length = [], []
-#     for i, (scan, direction, scale, path) in enumerate(dl):
-#         # write sitk image
-#         sitk.WriteImage(sitk.GetImageFromArray(scan.squeeze().numpy()), os.path.join(data_dir, 'TEST', 'scan_{}.nii.gz'.format(i)))
-#         break
+    dl = db.val_dataloader()
+    Scale, Length = [], []
+    for i, (scan,path,origin,spacing,lm) in enumerate(dl):
+        # write sitk image
+        # print(path[0])
+        img = sitk.GetImageFromArray(scan.squeeze().numpy())
+        new_origin = origin[0].numpy() - lm[0].numpy()* spacing[0].numpy()
+        img.SetOrigin(new_origin)
+        img.SetSpacing(spacing[0].tolist())
+        sitk.WriteImage(img, os.path.join(data_dir, 'TEST', 'scan_{}.nii.gz'.format(i)))
+        break

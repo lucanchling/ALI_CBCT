@@ -118,7 +118,7 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--landmark', type=str, default='ANS')
-    parser.add_argument('--checkpoint', type=str, default='/home/luciacev/Desktop/Luc_Anchling/Training_ALI/lm_ANS/Models/lr1e-04_bs35_angle0.5.ckpt')
+    parser.add_argument('--landmark', type=str, default='UL6O')
+    parser.add_argument('--checkpoint', type=str, default='/home/luciacev/Desktop/Luc_Anchling/Training_ALI/lm_UL6O/Models/lr1e-04_bs30_angle0.5.ckpt')
     args = parser.parse_args()
     main(args)    

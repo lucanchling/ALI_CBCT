@@ -22,11 +22,9 @@ import numpy as np
 import os
 
 def main(args):
-
     # #####################################
     #  Init_param
     # #####################################
-
     scale_spacing = args.scale_spacing  #Number of scale to use for the multi-scale environment
 
     image_dim = len(args.agent_FOV) # Dimention of the images 2D or 3D
@@ -63,7 +61,7 @@ def main(args):
         "focus_radius" : args.focus_radius,
     }
 
-    agent_lst = GetAgentLst(agents_param, GV.LABELS_TO_TRAIN)
+    agent_lst = GetAgentLst(agents_param, args.train_landmark[0].split(','))#GV.LABELS_TO_TRAIN)
 
     # environement_lst, agent_lst = GetTrainingEnvironementsAgents(environments_param,agents_param)
 
@@ -123,7 +121,6 @@ def main(args):
     # e.SaveEnvironmentState()
 
 
-
 # #####################################
 #  Args
 # #####################################
@@ -133,15 +130,12 @@ if __name__ ==  '__main__':
     
     input_group = parser.add_argument_group('dir')
     input_group.add_argument('--dir_project', type=str, help='Directory with all the project',default='/home/luciacev/Desktop/Maxime_Gillot/Trainings/ALI_CBCT', required=False)
-    input_group.add_argument('--dir_data', type=str, help='Input directory with 3D images', default=parser.parse_args().dir_project+'/data')
-    input_group.add_argument('--dir_scans', type=str, help='Input directory with the scans',default=parser.parse_args().dir_data+'/Patients')
-    input_group.add_argument('--dir_model', type=str, help='Output directory of the training',default= parser.parse_args().dir_data+'/ALI_models_'+datetime.datetime.now().strftime("%Y_%d_%m"))
 
     #Environment
     # input_group.add_argument('-lm','--landmark_group',nargs="+",type=str,help="Prepare the data for uper and/or lower landmark training (ex: U L CB CI)", default=["CI"])
-    input_group.add_argument('-sp', '--scale_spacing', nargs="+", type=float, help='Spacing of the different scales', default=[0.3,1])
+    input_group.add_argument('-sp', '--scale_spacing', nargs="+", type=float, help='Spacing of the different scales', default=[1,0.3])
     input_group.add_argument('-ts', '--training_scales', nargs="+", type=float, help='Scale to train', default=[0,1])
-
+    input_group.add_argument('-lm', '--train_landmark', nargs="+",type=str, help='List of landmark to train',default='S')
 
     #Agent
     input_group.add_argument('-fov', '--agent_FOV', nargs="+", type=float, help='Wanted crop size', default=[64,64,64])
@@ -165,6 +159,9 @@ if __name__ ==  '__main__':
     input_group.add_argument('-lr', '--learning_rate', type=float, help='Learning rate', default=1e-4)
     input_group.add_argument('-nw', '--nbr_worker', type=int, help='Number of worker (CPU)', default=5)
 
+    input_group.add_argument('--dir_data', type=str, help='Input directory with 3D images', default=parser.parse_args().dir_project+'/data')
+    input_group.add_argument('--dir_scans', type=str, help='Input directory with the scans',default=parser.parse_args().dir_data+'/Patients')
+    input_group.add_argument('--dir_model', type=str, help='Output directory of the training',default= parser.parse_args().dir_data+'/ALI_models')
     args = parser.parse_args()
     
     main(args)

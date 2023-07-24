@@ -39,7 +39,7 @@ def main(args):
 
     checkpoint_callback = ModelCheckpoint(
         dirpath= os.path.join(out_dir,'checkpoints'),
-        filename='{epoch}-{val_loss:.2f}',
+        filename='{epoch}-{val_loss:.3f}',
         save_top_k=2,
         monitor='val_loss'
     )
@@ -97,7 +97,7 @@ def main(args):
         os.mkdir(os.path.join(out_dir, 'Models'))
     
     # save the best model to Models folder
-    os.rename(trainer.checkpoint_callback.best_model_path, os.path.join(out_dir, 'Models', "lr"+"{:.0e}".format(args.lr)+"_bs"+str(args.batch_size)+"_angle"+str(round(args.angle,2))+".ckpt"))
+    os.rename(trainer.checkpoint_callback.best_model_path, os.path.join(out_dir, 'Models', "lr"+"{:.0e}".format(args.lr)+"_bs"+str(args.batch_size)+"_angle"+str(round(args.angle,2))+"_"+os.path.basename(trainer.checkpoint_callback.best_model_path).split('-')[1].split('.ckpt')[0]+".ckpt"))
     
     # rename tb dir Version_0 to lr=args.lr ; bs=args.batch_size
     os.rename(os.path.join(out_dir, args.tb_dir,'version_0'), os.path.join(out_dir,args.tb_dir, "lr="+"{:.0e}".format(args.lr)+" ; bs="+str(args.batch_size)+" ; angle="+str(round(args.angle,2))))

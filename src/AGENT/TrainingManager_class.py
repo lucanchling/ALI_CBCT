@@ -186,6 +186,7 @@ class TrainingMaster :
             start_time = time.time()
             for agent in self.agents:
                 for dim in range(len(self.env_scales)):
+                #    if dim==0 or (dim==1 and epoch_ctr==0):
                     data_loader,_ = self.GenerateDataLoader("train",agent,dim)
                     val = val_ctr
                     for i in range(data_update_freq):

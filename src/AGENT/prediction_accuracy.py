@@ -63,10 +63,11 @@ def main(args):
         "scale_keys" : GV.SCALE_KEYS,
         "spawn_rad" : args.spawn_radius,
         "speed_per_scale" : args.speed_per_scale,
-        "verbose" : True
+        "verbose" : True,
+        "focus_radius":args.focus_radius
     }
 
-    agent_lst = GetAgentLst(agents_param)
+    agent_lst = GetAgentLst(agents_param,['A','IF','ROr','LOr'])
 
 
     # agent_lst = GetAgentLst(agents_param)
@@ -105,15 +106,21 @@ def main(args):
     start_time = time.time()
 
     tot_step = 0
+    fails = {}
     for environment in environement_lst:
         print(environment.patient_id)
         # print(environment)
         for agent in agent_lst:
             agent.SetEnvironement(environment)
-            tot_step += agent.Search()
+            search_result = agent.Search()
+            if search_result == -1:
+                fails[agent.target] = fails.get(agent.target,0) + 1
+            else:
+                tot_step += search_result
             # PlotAgentPath(agent)
         environment.SavePredictedLandmarks(GV.SCALE_KEYS[-1])
-    
+
+
     print("Total steps:",tot_step)    
     end_time = time.time()
     print('prediction time :' , end_time-start_time)
@@ -138,16 +145,16 @@ if __name__ ==  '__main__':
     parser = argparse.ArgumentParser(description='Training for Automatic Landmarks Identification', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     
     input_group = parser.add_argument_group('dir')
-    input_group.add_argument('--dir_scans', type=str, help='Input directory with the scans',default='/Users/luciacev-admin/Documents/Projects/MSDRL_benchmark/data/test')
-    input_group.add_argument('--dir_model', type=str, help='Directory of the trained models',default= '/Users/luciacev-admin/Desktop/MSDRL_models/ALI_CNN_models_2021_26_10')
-    input_group.add_argument('-fem','--feat_extract_model', type=str, help='Directory of the trained feature extraction models',default= '/Users/luciacev-admin/Desktop/MSDRL_models/ALI_CNN_models_2021_26_10')
+    input_group.add_argument('--dir_scans', type=str, help='Input directory with the scans',default='/home/luciacev/Desktop/Luc_Anchling/DATA/ALI_CBCT/Accuracy_Test_Bis')
+    input_group.add_argument('--dir_model', type=str, help='Directory of the trained models',default= '/home/luciacev/Desktop/Luc_Anchling/TRAINING/ALI_CBCT/data/ALI_models')
+    #input_group.add_argument('-fem','--feat_extract_model', type=str, help='Directory of the trained feature extraction models',default= '/Users/luciacev-admin/Desktop/MSDRL_models/ALI_CNN_models_2021_26_10')
 
     #Environment
     input_group.add_argument('-lm','--landmarks',nargs="+",type=str,help="Prepare the data for uper and/or lower landmark training (ex: U L CB)", default=["U","L","CB"])
-    input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Spacing of the different scales', default=[1,0.3])
+    input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Spacing of the different scales', default=[0.3])
     input_group.add_argument('-sps', '--speed_per_scale', nargs="+", type=int, help='Speed for each environment scale', default=[1,1])
     input_group.add_argument('-sr', '--spawn_radius', type=int, help='spawning radius around landmark', default=10)
-
+    input_group.add_argument('-fr', '--focus_radius', type=int, help='focus radius around landmark', default=4)
 
     #Agent
     input_group.add_argument('-fov', '--agent_FOV', nargs="+", type=float, help='Wanted crop size', default=[64,64,64])

@@ -10,6 +10,7 @@ import time
 from tqdm import tqdm
 from ManagJson import MergeJson
 from CSVMaker import CSVForAllLandmarks
+from DataModule import LoadJsonLandmarks
 
 def resample_fn(img, target_size=[-1,-1,-1],target_spacing=None, outpath=None):
     output_size = target_size 
@@ -114,7 +115,7 @@ def SpacingResample(img,output_spacing=[0.5,0.5,0.5],outpath=-1):
     else:
         return resample.Execute(img)
 
-def GetPatients(data_dir):
+def GetPatients(data_dir, AfterResample=False):
     """Return the dictionary of patients with their scans and fiducials"""
     print("Reading folder : ", data_dir)
 
@@ -135,13 +136,20 @@ def GetPatients(data_dir):
 
 
             if True in [ext in img_fn for ext in [".nrrd", ".nrrd.gz", ".nii", ".nii.gz", ".gipl", ".gipl.gz"]]:
-                patients[patient]["scan"] = img_fn
+                if AfterResample:
+                    if "_HD" in basename:
+                        patients[patient]["scan"] = img_fn
+                else:
+                    patients[patient]["scan"] = img_fn
 
             elif True in [ext in img_fn for ext in [".fcsv",".json"]]:
-                if "lm" not in patients[patient].keys():
-                    patients[patient]["lm"] = [img_fn]
+                if AfterResample:
+                    patients[patient]["lm"] = img_fn
                 else:
-                    patients[patient]["lm"] += [img_fn]
+                    if "lm" not in patients[patient].keys():
+                        patients[patient]["lm"] = [img_fn]
+                    else:
+                        patients[patient]["lm"] += [img_fn]
 
             else:
                 print("----> Unrecognise fiducial file found at :", img_fn)
@@ -187,10 +195,10 @@ def InitScan(args, patients, shared_list, num_worker):
         low_res_size = [128, 128, 128]
         low_res_spacing = [1.8264, 1.8264, 1.8264]
 
-        high_res_spacing = [1,1,1]#[0.3, 0.3, 0.3]
+        high_res_spacing = [0.3,0.3,0.3]#[0.3, 0.3, 0.3]
 
-        LowResScanOutPath = os.path.join(OutPath,os.path.basename(scan).replace('.nii.gz','_LD.nii.gz'))
-        HighResScanOutPath = os.path.join(OutPath,os.path.basename(scan).replace('.nii.gz','_HD.nii.gz'))
+        LowResScanOutPath = os.path.join(OutPath,os.path.basename(scan).split('.')[0]+'_LD.nii.gz')
+        HighResScanOutPath = os.path.join(OutPath,os.path.basename(scan).split('.')[0]+'_HD.nii.gz')
                 
         # Resample the scan
         img = sitk.ReadImage(scan)
@@ -203,6 +211,31 @@ def InitScan(args, patients, shared_list, num_worker):
         
         shared_list[num_worker] += 1
 
+def GenerateCrop(args, patients, shared_list, num_worker, crop_size=[200,200,200]):
+    for patient, data in patients.items():
+        print(patient)
+        img = sitk.ReadImage(data["scan"])
+        landmark = LoadJsonLandmarks(data["lm"])
+        
+        for lm,pos in landmark.items():
+            print(lm)
+            ROI_Center = np.array(img.TransformPhysicalPointToContinuousIndex(pos)).astype(int)
+            ROI_Size = np.array(crop_size)
+            # Crop the scan
+            img_cropped = img[ROI_Center[0]-ROI_Size[0]//2:ROI_Center[0]+ROI_Size[0]//2,
+                              ROI_Center[1]-ROI_Size[1]//2:ROI_Center[1]+ROI_Size[1]//2,
+                              ROI_Center[2]-ROI_Size[2]//2:ROI_Center[2]+ROI_Size[2]//2]
+            
+            # Save the cropped scan
+            OutPath = os.path.join(args.out_dir, 'Crops', 'lm_{}'.format(lm))
+
+            if not os.path.exists(OutPath):
+                os.makedirs(OutPath)
+
+            ScanOutPath = os.path.join(OutPath, os.path.basename(data["scan"]).replace('_HD.nii.gz','_crop.nii.gz'))
+            sitk.WriteImage(img_cropped, ScanOutPath)
+            
+    
 
 def main(args):
     data_dir = args.data_dir
@@ -219,31 +252,43 @@ def main(args):
     nb_patients_done = mp.Manager().list([0 for i in range(nb_workers)])
     nb_patients = len(patients)
     check = mp.Process(target=CheckProgress, args=(nb_patients_done, nb_patients))
-    print("Resampling scans for Training...")
-    check.start()
+    # print("Resampling scans for Training...")
+    # check.start()
 
     key_split = np.array_split(list(patients.keys()), nb_workers)
 
     # TEST
     # InitScan(args, {key: patients[key] for key in key_split[0]},nb_patients_done,0)
     
-    processes = [mp.Process(target=InitScan, args=(args, {key: patients[key] for key in key_split[i]},nb_patients_done,i)) for i in range(nb_workers)]
+    # processes = [mp.Process(target=InitScan, args=(args, {key: patients[key] for key in key_split[i]},nb_patients_done,i)) for i in range(nb_workers)]
 
-    for p in processes:
-        p.start()
-    for p in processes:
-        p.join()
+    # for p in processes:p.start()
+    # for p in processes:p.join()
     
+    # check.join()
+
+    # # Merge the landmarks files
+    # MergeJson(data_dir=args.out_dir)
+
+    # Generate HD crops for each landmark
+    patients = GetPatients(args.out_dir,True)
+
+    nb_patients_done = mp.Manager().list([0 for i in range(args.nb_workers)])
+    check = mp.Process(target=CheckProgress, args=(nb_patients_done, nb_patients))
+    print("Generating crops for Training...")
+    check.start()
+
+    processes = [mp.Process(target=GenerateCrop, args=(args, {key: patients[key] for key in key_split[i]},nb_patients_done,i)) for i in range(nb_workers)]
+
+    for p in processes:p.start()
+    for p in processes:p.join()
+
     check.join()
 
-    # Merge the landmarks files
-    MergeJson(data_dir=args.out_dir)
-
-    # Generate the CSV file for training
-    print("Generating CSV file for training...")
-    CSVForAllLandmarks(args.out_dir)
-
-
+    
+    # # Generate the CSV file for training
+    # print("Generating CSV file for training...")
+    # CSVForAllLandmarks(args.out_dir)
 
 
 if __name__ == "__main__":
@@ -251,7 +296,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     
     parser.add_argument('--data_dir', type=str, default='/home/luciacev/Desktop/Luc_Anchling/DATA/ALI_CBCT/ALLDATA', help='path to data directory')
-    parser.add_argument('--out_dir', type=str, default='/home/luciacev/Desktop/Luc_Anchling/DATA/ALI_CBCT/TEST', help='path to out directory')
+    parser.add_argument('--out_dir', type=str, default='/home/luciacev/Desktop/Luc_Anchling/DATA/ALI_CBCT/DATA_RESAMPLED', help='path to out directory')
     parser.add_argument('-nw', '--nb_workers', type=int, default=1, help='number of CPU workers for multiprocessing')
 
     args = parser.parse_args()

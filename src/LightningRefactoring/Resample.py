@@ -65,8 +65,8 @@ def resample_fn(img, args):
 
     # print("Input size:", size)
     # print("Input spacing:", spacing)
-    # print("Output size:", output_size)
-    # print("Output spacing:", output_spacing)
+    print("Output size:", output_size)
+    print("Output spacing:", output_spacing)
     Spacing.append(output_spacing)
     # print("Output origin:", output_origin)
 
@@ -103,8 +103,8 @@ if __name__ == "__main__":
 
     in_group = parser.add_mutually_exclusive_group(required=False)
 
-    in_group.add_argument('--img', type=str, help='image to resample',default=None)#'/home/luciacev/Desktop/Luc_Anchling/DATA/ALI_CBCT/test/05_T0_scan_sp1.nii.gz')
-    in_group.add_argument('--dir', type=str, help='Directory with image to resample',default='/home/luciacev/Desktop/Luc_Anchling/DATA/ALI_CBCT/ALLDATA')#'/home/luciacev/Desktop/Luc_Anchling/DATA/ALI_CBCT/test/') # /home/luciacev/Desktop/Maxime_Gillot/Data/ALI_CBCT/ULCB_dataset
+    in_group.add_argument('--img', type=str, help='image to resample',default=None)
+    in_group.add_argument('--dir', type=str, help='Directory with image to resample',default='/home/luciacev/Desktop/Luc_Anchling/DATA/ALI_CBCT/ALLDATA')
     in_group.add_argument('--csv', type=str, help='CSV file with column img with paths to images to resample')
 
     csv_group = parser.add_argument_group('CSV extra parameters')
@@ -114,7 +114,7 @@ if __name__ == "__main__":
     transform_group = parser.add_argument_group('Transform parameters')
     transform_group.add_argument('--ref', type=str, help='Reference image. Use an image as reference for the resampling', default=None)
     transform_group.add_argument('--size', nargs="+", type=int, help='Output size, -1 to leave unchanged',default=[128,128,128])
-    transform_group.add_argument('--spacing', nargs="+", type=float, default=[1.43321683, 1.43321683, 1.43321683], help='Use a pre defined spacing')#1.73020833333 | 1.834375 | 1.99021392
+    transform_group.add_argument('--spacing', nargs="+", type=float, default=[0.3,0.3,0.3], help='Use a pre defined spacing')
     transform_group.add_argument('--origin', nargs="+", type=float, default=None, help='Use a pre defined origin')
     transform_group.add_argument('--linear', type=bool, help='Use linear interpolation.', default=False)
     transform_group.add_argument('--center', type=bool, help='Center the image in the space', default=True)
@@ -129,7 +129,7 @@ if __name__ == "__main__":
 
     out_group = parser.add_argument_group('Ouput parameters')
     out_group.add_argument('--ow', type=int, help='Overwrite', default=1)
-    out_group.add_argument('--out', type=str, help='Output image/directory', default='/home/luciacev/Desktop/Luc_Anchling/DATA/ALI_CBCT/RESAMPLED')#"/home/luciacev/Desktop/Luc_Anchling/DATA/ALI_CBCT/test/output") # /home/luciacev/Desktop/Maxime_Gillot/Data/ALI_CBCT/ULCB_dataset/output
+    out_group.add_argument('--out', type=str, help='Output image/directory', default='/home/luciacev/Desktop/Luc_Anchling/DATA/ALI_CBCT/ALLRESAMPLEDHD')
     out_group.add_argument('--out_ext', type=str, help='Output extension type', default=None)
 
     args = parser.parse_args()
@@ -212,13 +212,8 @@ if __name__ == "__main__":
                 img = Resample(fobj["img"], args)
             else:
                 img = sitk.ReadImage(fobj["img"])
-            # print(len(Spacing))
-            # img = sitk.ReadImage(fobj["out"])
-            # Spacing.append(np.array(img.GetSpacing()))
-            # Size.append(np.array(img.GetSize()))
-            # print("Size: ", img.GetSize())
-            # print("Spacing: ", img.GetSpacing())
             
+            # print(len(Spacing))
             # print("Writing:", fobj["out"])
             # writer = sitk.ImageFileWriter()
             # writer.SetFileName(fobj["out"])
@@ -229,9 +224,9 @@ if __name__ == "__main__":
             
         except Exception as e:
             print(e, file=sys.stderr)
-    print("For {} images:".format(len(filenames)))
+    # print("For {} images:".format(len(filenames)))
     # print("Size: ", np.mean(Size, axis=0))
-    print("Spacing: ", np.mean(Spacing, axis=0))
+    # print("Spacing: ", np.mean(Spacing, axis=0))
 
     for i in range(len(FROM)):
         shutil.copy(FROM[i], WHERE[i])

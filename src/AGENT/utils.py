@@ -167,7 +167,7 @@ def GenEnvironmentLst(patient_dic ,env_type, padding = 1, device = GV.DEVICE):
 
 def CorrectHisto(filepath,outpath,min_porcent=0.01,max_porcent = 0.95,i_min=-1500, i_max=4000):
 
-    print("Correcting scan contrast :", filepath)
+    # print("Correcting scan contrast :", filepath)
     input_img = sitk.ReadImage(filepath) 
     input_img = sitk.Cast(input_img, sitk.sitkFloat32)
     img = sitk.GetArrayFromImage(input_img)
@@ -303,7 +303,7 @@ def SetSpacing(filepath,output_spacing=[0.5, 0.5, 0.5],outpath=-1):
      path to save the new image
     """
 
-    print("Resample :", filepath, ", with spacing :", output_spacing)
+    # print("Resample :", filepath, ", with spacing :", output_spacing)
     img = itk.imread(filepath)
     # arr_img = itk.GetArrayFromImage(img)
     # print(np.min(arr_img),np.max(arr_img))

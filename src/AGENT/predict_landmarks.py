@@ -52,7 +52,7 @@ def main(args):
                 patients[basename] = {"scan": img_fn, "scans":{}}
 
             
-    temp_fold = os.path.join(args.dir_temp, "temp")
+    temp_fold = os.path.join(args.dir_temp)
     if not os.path.exists(temp_fold):
         os.makedirs(temp_fold)
 
@@ -200,15 +200,15 @@ if __name__ ==  '__main__':
     parser = argparse.ArgumentParser(description='Training for Automatic Landmarks Identification', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     
     input_group = parser.add_argument_group('dir')
-    input_group.add_argument('--dir_scans', type=str, help='Input directory with the scans',default='/app/data/scans')
-    input_group.add_argument('--dir_models', type=str, help='Directory of the trained models',default= '/app/data/models')
+    input_group.add_argument('--dir_scans', type=str, help='Input directory with the scans',default='/home/luciacev/Desktop/Luc_Anchling/DATA/ALI_CBCT/Accuracy_Test')
+    input_group.add_argument('--dir_models', type=str, help='Directory of the trained models',default= '/home/luciacev/Desktop/Maxime_Gillot/Data/ALI_CBCT/MODELS')
     
-    input_group.add_argument('--clear_temp', type=bool, help='Temp directory',default= True)
-    input_group.add_argument('--dir_temp', type=str, help='Temp directory',default= '..')
+    input_group.add_argument('--clear_temp', type=bool, help='Temp directory',default= False)
+    input_group.add_argument('--dir_temp', type=str, help='Temp directory',default= '/home/luciacev/Documents/Slicer_temp_ALI')
 
 
     #Environment
-    input_group.add_argument('-lm','--landmarks',nargs="+",type=str,help="Prepare the data for uper and/or lower landmark training (ex: U L CB)", default=['Ba', 'S'])
+    input_group.add_argument('-lm','--landmarks',nargs="+",type=str,help="Prepare the data for uper and/or lower landmark training (ex: U L CB)", default=['LPo', 'RPo'])
     input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Spacing of the different scales', default=[1,0.3])
     input_group.add_argument('-sps', '--speed_per_scale', nargs="+", type=int, help='Speed for each environment scale', default=[1,1])
     input_group.add_argument('-sr', '--spawn_radius', type=int, help='spawning radius around landmark', default=10)
